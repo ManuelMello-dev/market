@@ -1,6 +1,8 @@
+import os
 import unittest
+from unittest import mock
 
-from universal_mind import UniversalCognitiveCore
+from universal_mind import UniversalCognitiveCore, get_symbols
 
 
 class UniversalMindTests(unittest.TestCase):
@@ -41,6 +43,79 @@ class UniversalMindTests(unittest.TestCase):
         self.assertIn(signature, self.mind.concept_signatures)
         self.assertEqual(self.mind.concept_signatures[signature], new_concept_id)
         self.assertEqual(len(self.mind.concepts), 1)
+
+
+class StreamMarketDataTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stream_skips_duplicate_timestamps(self):
+        from universal_mind import stream_market_data
+
+        class DummyMind:
+            def __init__(self):
+                self.ingest_calls = []
+
+            def ingest(self, obs, domain="finance"):
+                self.ingest_calls.append(obs)
+                return {
+                    "concept_formed": "c",
+                    "new_rules": 0,
+                    "current_concepts": 1,
+                    "urgency": "normal",
+                }
+
+            def introspect(self):
+                return {}
+
+        responses = iter([
+            {"values": [{"datetime": "t1", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]},
+            {"values": [{"datetime": "t1", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]},
+            {"values": [{"datetime": "t2", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]},
+        ])
+
+        async def fake_fetch_market_data(symbol, api_key, interval):
+            try:
+                return next(responses)
+            except StopIteration:
+                return {"values": [{"datetime": "t2", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]}
+
+        async def fake_transform_market_data(raw_data):
+            return {"domain": "finance", "timestamp": raw_data.get("datetime")}
+
+        mind = DummyMind()
+
+        with mock.patch("universal_mind.fetch_market_data", side_effect=fake_fetch_market_data), \
+             mock.patch("universal_mind.transform_market_data", side_effect=fake_transform_market_data):
+            await stream_market_data(
+                symbol="AAPL",
+                api_key="k",
+                interval="1min",
+                delay_seconds=0,
+                mind_instance=mind,
+                max_iterations=3,
+            )
+
+        self.assertEqual(len(mind.ingest_calls), 2)
+        self.assertEqual([obs["timestamp"] for obs in mind.ingest_calls], ["t1", "t2"])
+
+
+class SymbolSelectionTests(unittest.TestCase):
+    def test_get_symbols_from_env(self):
+        with mock.patch.dict(os.environ, {"SYMBOLS": "MSFT, GOOG"}, clear=False):
+            self.assertEqual(get_symbols([]), ["MSFT", "GOOG"])
+
+    def test_get_symbols_cli_and_default(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            self.assertEqual(get_symbols(["TSLA", "AMD"]), ["TSLA", "AMD"])
+            self.assertEqual(get_symbols([]), ["AAPL"])
+
+    def test_get_symbols_whitespace_env_falls_back(self):
+        with mock.patch.dict(os.environ, {"SYMBOLS": " , "}, clear=False):
+            self.assertEqual(get_symbols(["TSLA"]), ["TSLA"])
+        with mock.patch.dict(os.environ, {"SYMBOLS": " , "}, clear=False):
+            self.assertEqual(get_symbols([]), ["AAPL"])
+
+    def test_get_symbols_strips_cli_whitespace(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            self.assertEqual(get_symbols([" ", "TSLA", "", " AMD "]), ["TSLA", "AMD"])
 
 
 if __name__ == "__main__":
