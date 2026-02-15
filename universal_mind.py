@@ -20,6 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("UniversalMind")
+MAX_LOGGED_SIGNATURE_LENGTH = 120
 
 @dataclass
 class Concept:
@@ -47,9 +48,13 @@ class UniversalCognitiveCore:
 
         # Memory systems (all in RAM, grow naturally)
         self.concepts: Dict[str, Concept] = {}
+        # Maps observation signatures (frozensets of non-private (key, value) pairs) to concept IDs to avoid duplicate concepts
+        self.concept_signatures: Dict[frozenset[tuple[str, Any]], str] = {}
         self.rules: List[Rule] = []
         self.short_term_memory: List[Dict] = []
         self.cross_domain_mappings: Dict = {}
+        # Concepts start empty; counter increments as new concepts are created
+        self.concept_counter = 0
 
         # Metrics that prove it's alive and growing
         self.metrics = {
@@ -99,6 +104,14 @@ class UniversalCognitiveCore:
             "urgency": "high" if any(v > 0.8 for v in observation.values() if isinstance(v, (int, float))) else "normal"
         }
 
+    def _strengthen_concept(self, concept_id: str, obs: Dict) -> bool:
+        concept = self.concepts.get(concept_id)
+        if not concept:
+            return False
+        concept.examples.append(obs)
+        concept.confidence = min(1.0, concept.confidence + 0.1)
+        return True
+
     def _form_concept(self, obs: Dict, domain: str) -> Optional[str]:
         """Simple but effective concept formation"""
         signature = frozenset(
@@ -106,22 +119,34 @@ class UniversalCognitiveCore:
             for k, v in obs.items() if not k.startswith("_")
         )
 
-        concept_id = f"concept_{len(self.concepts)+1}"
-
-        if concept_id not in self.concepts:
-            self.concepts[concept_id] = Concept(
-                id=concept_id,
-                examples=[obs],
-                confidence=0.3,
-                domain=domain
+        if signature in self.concept_signatures:
+            concept_id = self.concept_signatures[signature]
+            if self._strengthen_concept(concept_id, obs):
+                return concept_id
+            # Stale mapping – allow new concept creation
+            signature_repr = str(signature)
+            if len(signature_repr) > MAX_LOGGED_SIGNATURE_LENGTH:
+                signature_repr = signature_repr[:MAX_LOGGED_SIGNATURE_LENGTH] + "..."
+            logger.warning(
+                "Stale concept signature mapping detected for %s (signature_sample=%s); regenerating concept.",
+                concept_id,
+                signature_repr
             )
-            self.metrics["concepts_formed"] += 1
-            logger.info(f"🧩 New concept born: {concept_id} in {domain}")
-            return concept_id
+            del self.concept_signatures[signature]
 
-        # Strengthen existing
-        self.concepts[concept_id].examples.append(obs)
-        self.concepts[concept_id].confidence = min(1.0, self.concepts[concept_id].confidence + 0.1)
+        self.concept_counter += 1
+        concept_id = f"concept_{self.concept_counter}"
+
+        # Fall-through handles both new signatures and stale mapping recovery
+        self.concepts[concept_id] = Concept(
+            id=concept_id,
+            examples=[obs],
+            confidence=0.3,
+            domain=domain
+        )
+        self.metrics["concepts_formed"] += 1
+        self.concept_signatures[signature] = concept_id
+        logger.info(f"🧩 New concept born: {concept_id} in {domain}")
         return concept_id
 
     def _infer_rules(self, obs: Dict) -> List[Rule]:
