@@ -1,7 +1,8 @@
+import os
 import unittest
 from unittest import mock
 
-from universal_mind import UniversalCognitiveCore
+from universal_mind import UniversalCognitiveCore, get_symbols
 
 
 class UniversalMindTests(unittest.TestCase):
@@ -94,6 +95,27 @@ class StreamMarketDataTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(mind.ingest_calls), 2)
         self.assertEqual([obs["timestamp"] for obs in mind.ingest_calls], ["t1", "t2"])
+
+
+class SymbolSelectionTests(unittest.TestCase):
+    def test_get_symbols_from_env(self):
+        with mock.patch.dict(os.environ, {"SYMBOLS": "MSFT, GOOG"}, clear=False):
+            self.assertEqual(get_symbols([]), ["MSFT", "GOOG"])
+
+    def test_get_symbols_cli_and_default(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            self.assertEqual(get_symbols(["TSLA", "AMD"]), ["TSLA", "AMD"])
+            self.assertEqual(get_symbols([]), ["AAPL"])
+
+    def test_get_symbols_whitespace_env_falls_back(self):
+        with mock.patch.dict(os.environ, {"SYMBOLS": " , "}, clear=False):
+            self.assertEqual(get_symbols(["TSLA"]), ["TSLA"])
+        with mock.patch.dict(os.environ, {"SYMBOLS": " , "}, clear=False):
+            self.assertEqual(get_symbols([]), ["AAPL"])
+
+    def test_get_symbols_strips_cli_whitespace(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            self.assertEqual(get_symbols([" ", "TSLA", "", " AMD "]), ["TSLA", "AMD"])
 
 
 if __name__ == "__main__":

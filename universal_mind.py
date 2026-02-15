@@ -9,6 +9,8 @@ import time
 import logging
 import json
 import random
+import os
+import sys
 import requests
 from datetime import datetime
 from typing import Dict, List, Any, Optional
@@ -208,6 +210,23 @@ class UniversalCognitiveCore:
 
 # ============= MARKET DATA INTEGRATION =============
 
+def get_symbols(cli_args: Optional[List[str]] = None) -> List[str]:
+    """Return a list of symbols from env or CLI, defaulting to AAPL."""
+    def _clean_symbols(values):
+        """Strip whitespace and drop empty entries from symbol strings."""
+        return [s.strip() for s in values if s.strip()]
+
+    env_symbols = os.getenv("SYMBOLS")
+    if env_symbols:
+        parsed = _clean_symbols(env_symbols.split(","))
+        if parsed:
+            return parsed
+
+    args_to_use = cli_args if cli_args is not None else sys.argv[1:]
+    parsed = _clean_symbols(args_to_use)
+    return parsed if parsed else ["AAPL"]
+
+
 async def fetch_market_data(symbol: str, api_key: str, interval: str) -> Dict:
     """Fetches market data from Twelve Data API"""
     base_url = "https://api.twelvedata.com/time_series"
@@ -344,29 +363,48 @@ async def stream_market_data(
 async def main():
     """Main execution function"""
     # API Configuration
-    API_KEY = "20986c52844e4e1ba6156404bcb52bb0" # Your actual Twelve Data API Key
-    SYMBOL = "AAPL"
+    API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+    if not API_KEY:
+        logger.error(
+            "TWELVE_DATA_API_KEY environment variable not set. Please set it before running.\n"
+            "Unix: export TWELVE_DATA_API_KEY=your_key\n"
+            "Windows (cmd): set TWELVE_DATA_API_KEY=your_key\n"
+            "Windows (PowerShell): $env:TWELVE_DATA_API_KEY=\"your_key\""
+        )
+        raise ValueError("TWELVE_DATA_API_KEY environment variable not set")
     INTERVAL = "1min"
     DELAY_SECONDS = 15  # Increased to avoid rate limits on free tier
     MAX_ITERATIONS = 200  # Limit iterations for demo
+    symbols = get_symbols()
 
     logger.info("=" * 70)
     logger.info("🎯 UNIVERSAL COGNITIVE CORE - MARKET DATA INTEGRATION DEMO")
     logger.info("=" * 70)
+    logger.info(f"Targets: {', '.join(symbols)}")
 
     # Initialize the UniversalCognitiveCore
     mind = UniversalCognitiveCore("market_mind")
     logger.info(f"✅ UniversalCognitiveCore '{mind.mind_id}' initialized.")
 
-    # Start the market data stream
-    await stream_market_data(
-        SYMBOL,
-        API_KEY,
-        INTERVAL,
-        DELAY_SECONDS,
-        mind,
-        MAX_ITERATIONS
-    )
+    # Start the market data streams concurrently
+    tasks = [
+        stream_market_data(
+            symbol,
+            API_KEY,
+            INTERVAL,
+            DELAY_SECONDS,
+            mind,
+            MAX_ITERATIONS
+        )
+        for symbol in symbols
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for symbol, result in zip(symbols, results):
+        if isinstance(result, Exception):
+            logger.error(f"Stream for {symbol} failed with exception: {result}")
+        else:
+            logger.info(f"Stream for {symbol} completed successfully.")
 
     # Final introspection
     logger.info("\n" + "=" * 70)
