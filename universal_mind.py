@@ -280,6 +280,7 @@ async def stream_market_data(
     consecutive_rate_limit_hits = 0
     retry_delay = delay_seconds
     iteration = 0
+    last_processed_timestamp: Optional[str] = None
 
     while iteration < max_iterations:
         logger.info(f"📊 Fetching data for {symbol} (iteration {iteration + 1}/{max_iterations})...")
@@ -294,18 +295,25 @@ async def stream_market_data(
                 latest_data = data["values"][0]
                 logger.info(f"[{symbol}] Raw Data: Timestamp: {latest_data.get('datetime')}, Close: {latest_data.get('close')}")
 
-                # Transform the data for ingestion
-                transformed_market_data = await transform_market_data(latest_data)
-                logger.info(f"[{symbol}] Transformed Data: {transformed_market_data}")
+                current_timestamp = latest_data.get("datetime")
+                if last_processed_timestamp is not None and current_timestamp == last_processed_timestamp:
+                    logger.info(f"[{symbol}] Duplicate data at {current_timestamp}; skipping ingestion.")
+                else:
+                    # Transform the data for ingestion
+                    transformed_market_data = await transform_market_data(latest_data)
+                    logger.info(f"[{symbol}] Transformed Data: {transformed_market_data}")
 
-                # Ingest into UniversalCognitiveCore
-                ingestion_result = mind_instance.ingest(transformed_market_data, domain="finance")
-                logger.info(f"✅ [{symbol}] Ingested into mind. Result: {ingestion_result}")
+                    # Ingest into UniversalCognitiveCore
+                    ingestion_result = mind_instance.ingest(transformed_market_data, domain="finance")
+                    logger.info(f"✅ [{symbol}] Ingested into mind. Result: {ingestion_result}")
 
-                # Show introspection every few iterations
-                if (iteration + 1) % 3 == 0:
-                    introspection = mind_instance.introspect()
-                    logger.info(f"🧠 Mind Introspection: {introspection}")
+                    if current_timestamp is not None:
+                        last_processed_timestamp = current_timestamp
+
+                    # Show introspection every few iterations
+                    if (iteration + 1) % 3 == 0:
+                        introspection = mind_instance.introspect()
+                        logger.info(f"🧠 Mind Introspection: {introspection}")
             else:
                 logger.warning(f"No 'values' found in response for {symbol}: {data}")
 
