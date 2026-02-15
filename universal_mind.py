@@ -127,8 +127,6 @@ class UniversalCognitiveCore:
             logger.info(f"🧩 New concept born: {concept_id} in {domain}")
             return concept_id
 
-        return concept_id
-
     def _infer_rules(self, obs: Dict) -> List[Rule]:
         """Very simple rule induction from data"""
         rules = []
