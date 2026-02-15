@@ -52,7 +52,9 @@ class UniversalCognitiveCore:
         self.rules: List[Rule] = []
         self.short_term_memory: List[Dict] = []
         self.cross_domain_mappings: Dict = {}
-        self.concept_counter = len(self.concepts)
+        self.concept_counter = max(
+            [int(cid.split("_")[1]) for cid in self.concepts.keys() if cid.startswith("concept_") and cid.split("_")[1].isdigit()] or [0]
+        )
 
         # Metrics that prove it's alive and growing
         self.metrics = {
@@ -102,6 +104,14 @@ class UniversalCognitiveCore:
             "urgency": "high" if any(v > 0.8 for v in observation.values() if isinstance(v, (int, float))) else "normal"
         }
 
+    def _strengthen_concept(self, concept_id: str, obs: Dict) -> bool:
+        concept = self.concepts.get(concept_id)
+        if not concept:
+            return False
+        concept.examples.append(obs)
+        concept.confidence = min(1.0, concept.confidence + 0.1)
+        return True
+
     def _form_concept(self, obs: Dict, domain: str) -> Optional[str]:
         """Simple but effective concept formation"""
         signature = frozenset(
@@ -111,10 +121,7 @@ class UniversalCognitiveCore:
 
         if signature in self.concept_signatures:
             concept_id = self.concept_signatures[signature]
-            concept = self.concepts.get(concept_id)
-            if concept:
-                concept.examples.append(obs)
-                concept.confidence = min(1.0, concept.confidence + 0.1)
+            if self._strengthen_concept(concept_id, obs):
                 return concept_id
             # Stale mapping – allow new concept creation
             logger.warning("Stale concept signature mapping detected; regenerating concept.")
@@ -123,17 +130,16 @@ class UniversalCognitiveCore:
         self.concept_counter += 1
         concept_id = f"concept_{self.concept_counter}"
 
-        if concept_id not in self.concepts:
-            self.concepts[concept_id] = Concept(
-                id=concept_id,
-                examples=[obs],
-                confidence=0.3,
-                domain=domain
-            )
-            self.metrics["concepts_formed"] += 1
-            self.concept_signatures[signature] = concept_id
-            logger.info(f"🧩 New concept born: {concept_id} in {domain}")
-            return concept_id
+        self.concepts[concept_id] = Concept(
+            id=concept_id,
+            examples=[obs],
+            confidence=0.3,
+            domain=domain
+        )
+        self.metrics["concepts_formed"] += 1
+        self.concept_signatures[signature] = concept_id
+        logger.info(f"🧩 New concept born: {concept_id} in {domain}")
+        return concept_id
 
     def _infer_rules(self, obs: Dict) -> List[Rule]:
         """Very simple rule induction from data"""
