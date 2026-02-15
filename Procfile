@@ -1,1 +1,1 @@
-web: python3 universal_mind.py
+web: bash start.sh
