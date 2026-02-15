@@ -3,11 +3,13 @@ import asyncio
 import random
 import logging
 import json
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 import yfinance as yf
+from aiohttp import web
 
 # Install the polygon-api-client if not already installed
 try:
@@ -296,6 +298,29 @@ async def main():
 
     mind = UniversalCognitiveCore("market_wanderer")
 
+    # HTTP server for Railway health checks
+    async def health(request):
+        return web.json_response({"status": "alive", "mind": mind.introspect()})
+
+    async def status(request):
+        return web.json_response(mind.introspect())
+
+    app = web.Application()
+    app.router.add_get('/health', health)
+    app.router.add_get('/status', status)
+    app.router.add_get('/', health)
+
+    # Get PORT from environment (Railway sets this)
+    port = int(os.environ.get('PORT', 8080))
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+
+    logger.info(f"🌐 HTTP server starting on port {port}")
+    await site.start()
+
+    # Run the wandering task alongside the server
     await wander_the_market(
         MARKET_SYMBOLS,
         POLYGON_API_KEY,
