@@ -1,1 +1,1 @@
-web: python universal_mind.py
+python3 universal_mind.py
