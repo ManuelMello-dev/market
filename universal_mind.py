@@ -20,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("UniversalMind")
-MAX_SIGNATURE_LOG_LENGTH = 120
+MAX_LOGGED_SIGNATURE_LENGTH = 120
 
 @dataclass
 class Concept:
@@ -48,7 +48,7 @@ class UniversalCognitiveCore:
 
         # Memory systems (all in RAM, grow naturally)
         self.concepts: Dict[str, Concept] = {}
-        # Maps observation signatures (frozensets of (key, value) pairs) to concept IDs to avoid duplicate concepts
+        # Maps observation signatures (frozensets of non-private (key, value) pairs) to concept IDs to avoid duplicate concepts
         self.concept_signatures: Dict[frozenset[tuple[str, Any]], str] = {}
         self.rules: List[Rule] = []
         self.short_term_memory: List[Dict] = []
@@ -124,10 +124,13 @@ class UniversalCognitiveCore:
             if self._strengthen_concept(concept_id, obs):
                 return concept_id
             # Stale mapping – allow new concept creation
+            signature_repr = str(signature)
+            if len(signature_repr) > MAX_LOGGED_SIGNATURE_LENGTH:
+                signature_repr = signature_repr[:MAX_LOGGED_SIGNATURE_LENGTH] + "..."
             logger.warning(
                 "Stale concept signature mapping detected for %s (signature_sample=%s); regenerating concept.",
                 concept_id,
-                str(signature)[:MAX_SIGNATURE_LOG_LENGTH]
+                signature_repr
             )
             del self.concept_signatures[signature]
 

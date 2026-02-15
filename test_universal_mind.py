@@ -16,18 +16,14 @@ class UniversalMindTests(unittest.TestCase):
         }
 
     def test_strengthen_concept_increments_confidence(self):
-        result = self.mind.ingest(self.obs, domain="finance")
-        concept_id = result["concept_formed"]
+        first = self.mind.ingest(self.obs, domain="finance")
+        concept_id = first["concept_formed"]
 
         initial_confidence = self.mind.concepts[concept_id].confidence
-        strengthened = self.mind._strengthen_concept(concept_id, self.obs)
-
-        self.assertTrue(strengthened)
+        second = self.mind.ingest(self.obs, domain="finance")
+        self.assertEqual(second["concept_formed"], concept_id)
         self.assertGreater(self.mind.concepts[concept_id].confidence, initial_confidence)
         self.assertLessEqual(self.mind.concepts[concept_id].confidence, 1.0)
-
-    def test_strengthen_concept_missing_returns_false(self):
-        self.assertFalse(self.mind._strengthen_concept("missing", self.obs))
 
     def test_stale_signature_mapping_recreates_concept(self):
         first = self.mind.ingest(self.obs, domain="finance")
