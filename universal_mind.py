@@ -47,6 +47,7 @@ class UniversalCognitiveCore:
 
         # Memory systems (all in RAM, grow naturally)
         self.concepts: Dict[str, Concept] = {}
+        self.concept_signatures: Dict[frozenset, str] = {}
         self.rules: List[Rule] = []
         self.short_term_memory: List[Dict] = []
         self.cross_domain_mappings: Dict = {}
@@ -106,6 +107,12 @@ class UniversalCognitiveCore:
             for k, v in obs.items() if not k.startswith("_")
         )
 
+        if signature in self.concept_signatures:
+            concept_id = self.concept_signatures[signature]
+            self.concepts[concept_id].examples.append(obs)
+            self.concepts[concept_id].confidence = min(1.0, self.concepts[concept_id].confidence + 0.1)
+            return concept_id
+
         concept_id = f"concept_{len(self.concepts)+1}"
 
         if concept_id not in self.concepts:
@@ -116,10 +123,11 @@ class UniversalCognitiveCore:
                 domain=domain
             )
             self.metrics["concepts_formed"] += 1
+            self.concept_signatures[signature] = concept_id
             logger.info(f"🧩 New concept born: {concept_id} in {domain}")
             return concept_id
 
-        # Strengthen existing
+        # Strengthen existing (fallback)
         self.concepts[concept_id].examples.append(obs)
         self.concepts[concept_id].confidence = min(1.0, self.concepts[concept_id].confidence + 0.1)
         return concept_id
