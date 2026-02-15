@@ -345,11 +345,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except RuntimeError as exc:
-        # In environments (e.g., notebooks) with a running loop, schedule instead
-        if "event loop is running" in str(exc):
-            asyncio.get_event_loop().create_task(main())
-        else:
-            raise
+    asyncio.run(main())
