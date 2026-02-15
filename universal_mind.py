@@ -126,7 +126,7 @@ class UniversalCognitiveCore:
             logger.warning(
                 "Stale concept signature mapping detected for %s (signature=%s); regenerating concept.",
                 concept_id,
-                sorted(signature)
+                sorted(list(signature))
             )
             del self.concept_signatures[signature]
 
