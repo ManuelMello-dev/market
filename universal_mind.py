@@ -127,9 +127,6 @@ class UniversalCognitiveCore:
             logger.info(f"🧩 New concept born: {concept_id} in {domain}")
             return concept_id
 
-        # Strengthen existing (fallback)
-        self.concepts[concept_id].examples.append(obs)
-        self.concepts[concept_id].confidence = min(1.0, self.concepts[concept_id].confidence + 0.1)
         return concept_id
 
     def _infer_rules(self, obs: Dict) -> List[Rule]:
