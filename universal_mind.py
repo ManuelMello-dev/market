@@ -344,11 +344,12 @@ async def main():
     logger.info("\n🎉 Demo complete!")
 
 
-# --- FIX FOR COLAB/JUPYTER ENVIRONMENTS ---
-# In Colab/Jupyter, an event loop is usually already running.
-# Calling asyncio.run() directly from a cell will raise a RuntimeError.
-# Instead, await the main() function directly if not in a __main__ context.
-# if __name__ == "__main__":
-#     asyncio.run(main())
-
-await main()
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except RuntimeError as exc:
+        # In environments (e.g., notebooks) with a running loop, schedule instead
+        if "event loop is running" in str(exc):
+            asyncio.get_event_loop().create_task(main())
+        else:
+            raise
