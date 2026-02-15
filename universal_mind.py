@@ -53,7 +53,8 @@ class UniversalCognitiveCore:
         self.short_term_memory: List[Dict] = []
         self.cross_domain_mappings: Dict = {}
         self.concept_counter = max(
-            [int(cid.split("_")[1]) for cid in self.concepts.keys() if cid.startswith("concept_") and cid.split("_")[1].isdigit()] or [0]
+            (int(cid.split("_")[1]) for cid in self.concepts.keys() if cid.startswith("concept_") and cid.split("_")[1].isdigit()),
+            default=0
         )
 
         # Metrics that prove it's alive and growing
@@ -124,7 +125,7 @@ class UniversalCognitiveCore:
             if self._strengthen_concept(concept_id, obs):
                 return concept_id
             # Stale mapping – allow new concept creation
-            logger.warning("Stale concept signature mapping detected; regenerating concept.")
+            logger.warning("Stale concept signature mapping detected for %s (signature_hash=%s); regenerating concept.", concept_id, hash(signature))
             del self.concept_signatures[signature]
 
         self.concept_counter += 1
