@@ -296,7 +296,9 @@ async def stream_market_data(
                 logger.info(f"[{symbol}] Raw Data: Timestamp: {latest_data.get('datetime')}, Close: {latest_data.get('close')}")
 
                 current_timestamp = latest_data.get("datetime")
-                if last_processed_timestamp is not None and current_timestamp == last_processed_timestamp:
+                if not current_timestamp:
+                    logger.warning(f"[{symbol}] Missing timestamp in latest data; skipping ingestion.")
+                elif current_timestamp == last_processed_timestamp:
                     logger.info(f"[{symbol}] Duplicate data at {current_timestamp}; skipping ingestion.")
                 else:
                     # Transform the data for ingestion
@@ -307,13 +309,12 @@ async def stream_market_data(
                     ingestion_result = mind_instance.ingest(transformed_market_data, domain="finance")
                     logger.info(f"✅ [{symbol}] Ingested into mind. Result: {ingestion_result}")
 
-                    if current_timestamp is not None:
-                        last_processed_timestamp = current_timestamp
+                    last_processed_timestamp = current_timestamp
 
-                    # Show introspection every few iterations
-                    if (iteration + 1) % 3 == 0:
-                        introspection = mind_instance.introspect()
-                        logger.info(f"🧠 Mind Introspection: {introspection}")
+                # Show introspection every few iterations
+                if (iteration + 1) % 3 == 0:
+                    introspection = mind_instance.introspect()
+                    logger.info(f"🧠 Mind Introspection: {introspection}")
             else:
                 logger.warning(f"No 'values' found in response for {symbol}: {data}")
 

@@ -64,14 +64,17 @@ class StreamMarketDataTests(unittest.IsolatedAsyncioTestCase):
             def introspect(self):
                 return {}
 
-        responses = [
+        responses = iter([
             {"values": [{"datetime": "t1", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]},
             {"values": [{"datetime": "t1", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]},
             {"values": [{"datetime": "t2", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]},
-        ]
+        ])
 
         async def fake_fetch_market_data(symbol, api_key, interval):
-            return responses.pop(0)
+            try:
+                return next(responses)
+            except StopIteration:
+                return {"values": [{"datetime": "t2", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]}
 
         async def fake_transform_market_data(raw_data):
             return {"domain": "finance", "timestamp": raw_data.get("datetime")}
