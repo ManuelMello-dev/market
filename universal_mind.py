@@ -123,16 +123,18 @@ class UniversalCognitiveCore:
             if self._strengthen_concept(concept_id, obs):
                 return concept_id
             # Stale mapping – allow new concept creation
+            signature_repr = str(sorted(list(signature)))[:120]
             logger.warning(
-                "Stale concept signature mapping detected for %s (signature=%s); regenerating concept.",
+                "Stale concept signature mapping detected for %s (signature_sample=%s); regenerating concept.",
                 concept_id,
-                sorted(list(signature))
+                signature_repr
             )
             del self.concept_signatures[signature]
 
         self.concept_counter += 1
         concept_id = f"concept_{self.concept_counter}"
 
+        # Fall-through handles both new signatures and stale mapping recovery
         self.concepts[concept_id] = Concept(
             id=concept_id,
             examples=[obs],
