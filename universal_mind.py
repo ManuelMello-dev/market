@@ -48,10 +48,11 @@ class UniversalCognitiveCore:
         # Memory systems (all in RAM, grow naturally)
         self.concepts: Dict[str, Concept] = {}
         # Maps observation signatures to concept IDs to avoid duplicate concepts
-        self.concept_signatures: Dict[frozenset, str] = {}
+        self.concept_signatures: Dict[frozenset[tuple[str, Any]], str] = {}
         self.rules: List[Rule] = []
         self.short_term_memory: List[Dict] = []
         self.cross_domain_mappings: Dict = {}
+        self.concept_counter = 0
 
         # Metrics that prove it's alive and growing
         self.metrics = {
@@ -118,7 +119,8 @@ class UniversalCognitiveCore:
             # Stale mapping – allow new concept creation
             del self.concept_signatures[signature]
 
-        concept_id = f"concept_{len(self.concepts)+1}"
+        self.concept_counter += 1
+        concept_id = f"concept_{self.concept_counter}"
 
         if concept_id not in self.concepts:
             self.concepts[concept_id] = Concept(
