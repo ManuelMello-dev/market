@@ -20,6 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("UniversalMind")
+MAX_SIGNATURE_LOG_LENGTH = 120
 
 @dataclass
 class Concept:
@@ -126,7 +127,7 @@ class UniversalCognitiveCore:
             logger.warning(
                 "Stale concept signature mapping detected for %s (signature_sample=%s); regenerating concept.",
                 concept_id,
-                str(signature)[:120]
+                str(signature)[:MAX_SIGNATURE_LOG_LENGTH]
             )
             del self.concept_signatures[signature]
 
