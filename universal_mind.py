@@ -47,12 +47,12 @@ class UniversalCognitiveCore:
 
         # Memory systems (all in RAM, grow naturally)
         self.concepts: Dict[str, Concept] = {}
-        # Maps observation signatures to concept IDs to avoid duplicate concepts
+        # Maps observation signatures (frozensets of (key, value) pairs) to concept IDs to avoid duplicate concepts
         self.concept_signatures: Dict[frozenset[tuple[str, Any]], str] = {}
         self.rules: List[Rule] = []
         self.short_term_memory: List[Dict] = []
         self.cross_domain_mappings: Dict = {}
-        self.concept_counter = 0
+        self.concept_counter = len(self.concepts)
 
         # Metrics that prove it's alive and growing
         self.metrics = {
@@ -117,6 +117,7 @@ class UniversalCognitiveCore:
                 concept.confidence = min(1.0, concept.confidence + 0.1)
                 return concept_id
             # Stale mapping – allow new concept creation
+            logger.warning("Stale concept signature mapping detected; regenerating concept.")
             del self.concept_signatures[signature]
 
         self.concept_counter += 1
